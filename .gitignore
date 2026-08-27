@@ -1,0 +1,19 @@
+# Gradle
+.gradle/
+build/
+out/
+bin/
+
+# Loom / runtime
+run*/
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+libs/backup-fsgit/

@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "bbsvfx",
+	"version": "${version}",
+	"name": "BBS VFX",
+	"description": "VFX toolkit for the BBS mod: physics destruction (PhysX), smear frames & motion lines, impact frames, blend modes, label/text overhaul, 3D curves & follow-curve camera, After Effects / Blender camera export.",
+	"authors": ["Xavin"],
+	"license": "MIT",
+	"icon": "assets/bbsvfx/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["com.bbsvfx.bbsvfx.BbsVfxMain"],
+		"client": ["com.bbsvfx.bbsvfx.client.BbsVfxClient"],
+		"bbs-addon": ["com.bbsvfx.bbsvfx.BbsVfxAddon"]
+	},
+	"mixins": [
+		"bbsvfx.mixins.json",
+		{
+			"config": "bbsvfx.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"accessWidener": "bbsvfx.accesswidener",
+	"depends": {
+		"fabricloader": ">=0.15.0",
+		"minecraft": "${mc_target}",
+		"java": ">=${java_min}",
+		"fabric-api": "*",
+		"bbs": "*"
+	}
+}

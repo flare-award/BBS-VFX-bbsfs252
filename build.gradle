@@ -1,0 +1,121 @@
+plugins {
+	id 'fabric-loom' version '1.15-SNAPSHOT'
+}
+
+/*
+ * Multi-version build: `gradlew build` = 1.20.1 (default), `gradlew build -Pmc=1.20.4` = 1.20.4.
+ * Each target pins its own yarn/fabric-api/BBS jar; the artifact is suffixed with the MC version.
+ */
+def mcTarget = project.hasProperty('mc') ? project.property('mc') : project.minecraft_version
+def yarnByMc = ['1.20.1': '1.20.1+build.10', '1.20.4': '1.20.4+build.1', '1.21.1': '1.21.1+build.3']
+def fabricByMc = ['1.20.1': '0.92.1+1.20.1', '1.20.4': '0.91.1+1.20.4', '1.21.1': '0.116.12+1.21.1']
+def bbsJarByMc = ['1.20.1': 'libs/bbs-2.5.2-1.20.1.jar', '1.20.4': 'libs/bbs-2.4-1.20.4.jar', '1.21.1': 'libs/bbs-2.4-1.21.1.jar']
+/* Dev-runtime only; absent for a target = simply not on the dev classpath. */
+def sodiumByMc = ['1.20.1': 'mc1.20.1-0.5.8', '1.20.4': 'mc1.20.4-0.5.8']
+def irisByMc = ['1.20.1': '1.7.0+1.20.1', '1.20.4': '1.7.0+1.20.4']
+/* 1.20.x compiles to Java 17, 1.21+ requires 21. */
+def javaByMc = ['1.20.1': 17, '1.20.4': 17, '1.21.1': 21]
+def javaTarget = javaByMc[mcTarget]
+
+if (!yarnByMc.containsKey(mcTarget)) {
+	throw new RuntimeException("Unsupported -Pmc=" + mcTarget + " (supported: " + yarnByMc.keySet() + ")")
+}
+
+version = project.mod_version + "-" + mcTarget
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+  // Add repositories to retrieve artifacts from in here.
+  // You should only use this when depending on other mods because
+  // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
+  // See https://docs.gradle.org/current/userguide/declaring_repositories.html
+  // for more information about repositories.
+  exclusiveContent {
+    forRepository {
+      maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+      }
+    }
+    filter {
+      includeGroup "maven.modrinth"
+    }
+  }
+
+  maven {
+    name = "Gegy"
+    url = "https://maven.gegy.dev/"
+  }
+}
+
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"bbsvfx" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+
+	accessWidenerPath.set(getRootProject().file("src/main/resources/bbsvfx.accesswidener"))
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${mcTarget}"
+	mappings "net.fabricmc:yarn:${yarnByMc[mcTarget]}:v2"
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${fabricByMc[mcTarget]}"
+
+	// BBS itself, used as a mod dependency. Built from the bbs-fs source (see CLAUDE.md).
+	modImplementation files(bbsJarByMc[mcTarget])
+
+	if (sodiumByMc.containsKey(mcTarget)) {
+		modImplementation "maven.modrinth:sodium:${sodiumByMc[mcTarget]}"
+	}
+	if (irisByMc.containsKey(mcTarget)) {
+		modImplementation "maven.modrinth:iris:${irisByMc[mcTarget]}"
+		modImplementation "org.anarres:jcpp:1.4.14"
+		modImplementation "io.github.douira:glsl-transformer:2.0.0-pre13"
+	}
+
+	// NVIDIA PhysX 5 JNI bindings (Destruction Box physics mode). Bundled into the mod jar.
+	implementation "de.fabmax:physx-jni:2.7.1"
+	runtimeOnly "de.fabmax:physx-jni:2.7.1:natives-windows"
+	include "de.fabmax:physx-jni:2.7.1"
+	include "de.fabmax:physx-jni:2.7.1:natives-windows"
+}
+
+processResources {
+	inputs.property "version", project.version
+	inputs.property "mc_target", mcTarget
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version, "mc_target": mcTarget, "java_min": javaTarget
+	}
+
+	filesMatching("*.mixins.json") {
+		expand "java_min": javaTarget
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = javaTarget
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.toVersion(javaTarget)
+	targetCompatibility = JavaVersion.toVersion(javaTarget)
+}
+
+jar {
+	from("LICENSE") {
+		rename { "${it}_${project.base.archivesName.get()}"}
+	}
+}
