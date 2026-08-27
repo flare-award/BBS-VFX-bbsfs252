@@ -6,6 +6,10 @@
     "plugin": "com.bbsvfx.bbsvfx.mixin.client.BbsVfxClientMixinPlugin",
     "client": [
         "BBSRenderingImpactMixin",
+        "BOBJArmatureNullParentMixin",
+        "BOBJEmoticonsLoadMixin",
+        "BOBJEnsureSetupMixin",
+        "BOBJSimpleJointMixin",
         "BOBJSmearHideMixin",
         "FormActiveUnitGuardMixin",
         "PhysicsModCudaMixin",
