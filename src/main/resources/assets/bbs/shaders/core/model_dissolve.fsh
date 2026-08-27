@@ -7,6 +7,7 @@ uniform vec4 ColorModulator;
 uniform float FogStart;
 uniform float FogEnd;
 uniform vec4 FogColor;
+uniform int PassMode;
 
 // bbsvfx: smear-frame dissolve. 0 = intact (normal rendering), 1 = fully dissolved.
 uniform float Dissolve;
@@ -41,6 +42,19 @@ void main()
     }
 
     color *= vertexColor * ColorModulator;
+
+    /* Match BBS FS 2.5.2 model.fsh two-pass translucency so player-skin BOBJ (emoticons)
+     * splits opaque/translucent correctly when the queue is on. PassMode 0 = single pass. */
+    if (PassMode == 1 && color.a < 0.999)
+    {
+        discard;
+    }
+
+    if (PassMode == 2 && color.a >= 0.999)
+    {
+        discard;
+    }
+
     color.rgb = mix(overlayColor.rgb, color.rgb, overlayColor.a);
     color *= lightMapColor;
 

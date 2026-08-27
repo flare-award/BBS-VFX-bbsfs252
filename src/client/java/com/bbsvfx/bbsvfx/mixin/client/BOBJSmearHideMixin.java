@@ -50,10 +50,16 @@ public abstract class BOBJSmearHideMixin
     @Unique
     private String[] bbsvfx$boneNames;
 
+    /**
+     * BBS FS 2.5.2 split {@code updateMesh} into a 1-arg trampoline and a 2-arg
+     * {@code (StencilMap, Matrix4f[])} that actually uploads. The 1-arg method has no
+     * {@code glBufferData}, so a name-only inject can miss the upload (or throw and skip it,
+     * leaving the mesh empty). Target the 2-arg body explicitly.
+     */
     @Inject(
-        method = "updateMesh",
+        method = "updateMesh(Lmchorse/bbs_mod/ui/framework/elements/utils/StencilMap;[Lorg/joml/Matrix4f;)V",
         at = @At(value = "INVOKE", target = "Lorg/lwjgl/opengl/GL15;glBufferData(I[FI)V", ordinal = 0))
-    private void bbsvfx$collapseHiddenBones(StencilMap stencilMap, CallbackInfo ci)
+    private void bbsvfx$collapseHiddenBones(StencilMap stencilMap, org.joml.Matrix4f[] matrices, CallbackInfo ci)
     {
         Set<String> hide = SmearRenderState.hide;
 
@@ -76,13 +82,46 @@ public abstract class BOBJSmearHideMixin
             return;
         }
 
+        if (this.tmpVertices == null || this.data == null || this.armature == null)
+        {
+            return;
+        }
+
+        /* Never let a smear-isolation bug abort the VBO upload — that leaves the mesh empty
+         * (emoticons/BOBJ actors go fully invisible). */
+        try
+        {
+            this.bbsvfx$collapse(hide);
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+        }
+    }
+
+    @Unique
+    private void bbsvfx$collapse(Set<String> hide)
+    {
         if (this.bbsvfx$boneNames == null)
         {
-            this.bbsvfx$boneNames = new String[this.armature.orderedBones.size()];
+            int size = 0;
 
             for (BOBJBone bone : this.armature.orderedBones)
             {
-                this.bbsvfx$boneNames[bone.index] = bone.name;
+                if (bone.index + 1 > size)
+                {
+                    size = bone.index + 1;
+                }
+            }
+
+            this.bbsvfx$boneNames = new String[Math.max(size, this.armature.orderedBones.size())];
+
+            for (BOBJBone bone : this.armature.orderedBones)
+            {
+                if (bone.index >= 0 && bone.index < this.bbsvfx$boneNames.length)
+                {
+                    this.bbsvfx$boneNames[bone.index] = bone.name;
+                }
             }
         }
 
@@ -173,5 +212,12 @@ public abstract class BOBJSmearHideMixin
                 }
             }
         }
+    }
+
+    /** Leave no BOBJ VAO bound after init — a leftover bind corrupts later GL (Minecraft / other models). */
+    @Inject(method = "initBuffers", at = @At("TAIL"))
+    private void bbsvfx$unbindAfterInit(CallbackInfo ci)
+    {
+        org.lwjgl.opengl.GL30.glBindVertexArray(0);
     }
 }
